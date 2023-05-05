@@ -1,77 +1,98 @@
-clc; clear all; close all;
+clc; 
+clear all; 
+close all;
 
-global Rs Rr K Ms Mr beta alfa gamma y_e WW u_e nn dd;
+% Dichiarazione delle variabili globali
+global Rs Rr K Ms Mr beta alfa gamma;
 
-Rs=1.5; Rr=1.3;     %tassi di riproduzione
-Ms=0.7; Mr=0.15;    %tassi di mortalità
-K=200;              %max cellule dentro ambiente
-gamma=0.3;          %termine di mutazione r->s
-beta=0.3;           %termine di mutazione s->r
-alfa=0.2;           %termine di mutazione s->r causata dal trattamento
+% Definizione delle costanti
+Rs = 1.5;       % tasso di riproduzione delle cellule suscettibili
+Rr = 1.3;       % tasso di riproduzione delle cellule resistenti
+Ms = 0.7;       % tasso di mortalità delle cellule suscettibili
+Mr = 0.15;      % tasso di mortalità delle cellule resistenti
+K = 200;        % massimo numero di cellule che possono esistere all'interno dell'ambiente
+gamma = 0.3;    % termine di mutazione r -> s
+beta = 0.3;     % termine di mutazione s -> r
+alfa = 0.2;     % termine di mutazione s -> r causata dal trattamento terapeutico
 
-x_1e=100; x_2e=100;   %coppia di equilibrio
-x0 = [x_1e; x_2e];    %stato iniziale
-interv = [0 100];    
+% Definizione delle condizioni iniziali
+x_1e = 100;     % popolazione iniziale di cellule suscettibili
+x_2e = 100;     % popolazione iniziale di cellule resistenti
+x0 = [x_1e; x_2e];  % vettore contenente le popolazioni iniziali delle due tipologie di cellule
 
-Cf = @(t) 1;        %ingresso di controllo u(t)
+% Definizione dell'intervallo di tempo per la simulazione
+interv = [0 100];  
 
-%% punto 1: forma di stato
+% Definizione dell'ingresso di controllo u(t)
+Cf = @(t) 1;        
+
+% Definizione della forma di stato
 dyn = @(t, N) [-Rs*log((N(1)+N(2))/K)*N(1)-(Ms*Cf(t)*N(1))-(beta*N(1))+(gamma*N(2))-(alfa*Cf(t)*N(1));
                -Rr*log((N(1)+N(2))/K)*N(2)-(Mr*Cf(t)*N(2))+(beta*N(1))-(gamma*N(2))+(alfa*Cf(t)*N(1))];
 
+% Risoluzione delle equazioni differenziali ordinarie con la funzione ode45
 [time, traj] = ode45(dyn, interv, x0);
 
-yy=traj(:,2);   %y=x(2)
+% Estrazione della popolazione di cellule resistenti dal vettore delle soluzioni
+yy = traj(:, 2);  
 
-%plot dell'evoluzione nel tempo
-if 1
+% Visualizzazione dei risultati tramite un grafico
+if 0
     figure(1);
     plot(time, traj);
-    %plot(time, yy);  %possiamo misurare solo quelle resistenti;
-    grid on; zoom on;
+    grid on; 
+    zoom on;
     legend("cellule suscettibili", "cellule resistenti");
-    %legend("cellule resistenti");
 end
 
-%% Linearizzazione
 
-%cerchiamo Ue ingresso di equilibrio ponendo a 0 la f(x) e troviamo
-u_e=0;
-y_e=x_2e;
+%%Linearizzazione
 
-%matrici del sistema linearizzato
+% Troviamo il valore di equilibrio per l'ingresso u_e ponendo a 0 la f(x) e troviamo:
+u_e = 0;
+y_e = x_2e;
+
+% Matrici del sistema linearizzato
 A_eq = [-1.05 -0.45; -0.35 -0.95];
 B_eq = [-90; 5];
 C_eq = [0 1];
 D_eq = 0;
 
-% state-space model
+% Costruiamo il modello nello spazio degli stati
 modello = ss(A_eq, B_eq, C_eq, D_eq);
 
-% plot del sistema linearizzato
+% Plot del sistema linearizzato
 if 0
+    % Generiamo un vettore costante come ingresso
     cf_vettore = ones(length(interv), 1);
+    
+    % Simuliamo il modello lineare
     [YY, TT, XX] = lsim(modello, cf_vettore, interv, x0);
     
+    % Plot dei risultati
     figure(2);
     plot(TT, XX);  
     grid on; zoom on;
-    %legend("cellule resistenti");
     legend("cellule suscettibili", "cellule resistenti");
 end
 
-%% punto 2: funzione di trasfermento
 
+%% punto 2: funzione di trasferimento
+
+% Costruzione della funzione di trasferimento G a partire dal modello di stato
 G = tf(modello);
+
+% Zeri, poli e guadagno della funzione di trasferimento
 zpk(G)
-    
-%diagramma di bode e pz-map di G
+
+% Plot del diagramma di Bode e del pz-map di G
 if 0
     figure(3);
     bode(G);
     figure(4);
     pzmap(G);
 end
+
 
 %% Punto 3: definizione specifiche
 
@@ -101,7 +122,7 @@ S_100_spec = 0.07;
 % Margine di fase
 logsq = (log(S_100_spec))^2;
 xi = sqrt(logsq/(pi^2+logsq));
-Mf_spec = xi*100
+Mf_spec = xi*100;
 
 % Tempo di assestamento
 T_a5_spec = 1;
@@ -145,7 +166,7 @@ legend(Legend_mag);
 bode(Ge);
 
 grid on; zoom on;
-____________________________________________________________
+
 % Specifiche sovraelongazione (margine di fase)
 omega_c_min = omega_Ta_max;
 omega_c_max = omega_n_min;
@@ -216,6 +237,7 @@ patch(Bnd_Mf_x, Bnd_Mf_y,'g','FaceAlpha',0.2,'EdgeAlpha',0);
 % Legenda colori
 Legend_arg = ["L(j\omega)"; "M_f"];
 legend(Legend_arg);
+
 
 %% Punto 4: testare il modello linearizzato
 
@@ -292,6 +314,7 @@ patch([T_a5_spec,T_simulazione,T_simulazione,T_a5_spec],[LV*(1+0.05),LV*(1+0.05)
 Legend_step = ["y_{tot}"; "Vincolo sovraelongazione"; "Vincolo tempo di assestamento"];
 legend(Legend_step);
 
+
 %% Punto 5: test sul sistema NON lineare
 
 if 1
@@ -341,4 +364,5 @@ function out = sistemaNonLineareChiuso(t, x)
            A_R(2, :)*x(3:5, 1)+B_R(2, :)*e;
            A_R(3, :)*x(3:5, 1)+B_R(3, :)*e];
 end
+
 
